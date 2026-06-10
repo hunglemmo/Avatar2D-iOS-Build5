@@ -16,11 +16,10 @@ jobs:
           lfs: true
 
       - name: Soi duong (Debug file structure)
-        run: ls -R  # Dòng này để liệt kê file, nếu lỗi ta sẽ nhìn vào đây
+        run: find . -maxdepth 4 # Quét sâu hơn chút
 
       - name: Hack bypass loi thieu Plugin
         run: |
-          # Tìm file main.mm ở bất cứ đâu
           MAIN_MM=$(find . -name "main.mm" | head -n 1)
           if [ -n "$MAIN_MM" ]; then
             cat << 'EOF' >> "$MAIN_MM"
@@ -39,15 +38,16 @@ jobs:
 
       - name: Build Xcode Project
         run: |
-          # Tự động tìm file .xcworkspace hoặc .xcodeproj
-          PROJECT_FILE=$(find . -maxdepth 3 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) | head -n 1)
+          # Tìm tất cả file xcodeproj hoặc xcworkspace trong toàn bộ repo
+          PROJECT_FILE=$(find . -type d \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) | head -n 1)
           
           if [ -z "$PROJECT_FILE" ]; then
-            echo "Loi: Khong tim thay file du an Xcode nao!"
+            echo "Loi: Khong tim thay du an Xcode nao!"
+            find . # In ra lại để debug
             exit 1
           fi
           
-          echo "Dang build file: $PROJECT_FILE"
+          echo "Da tim thay du an: $PROJECT_FILE"
           
           if [[ "$PROJECT_FILE" == *".xcworkspace" ]]; then
             CMD="-workspace $PROJECT_FILE"
@@ -64,7 +64,9 @@ jobs:
       - name: Dong goi thanh file .IPA
         run: |
           mkdir -p Payload
-          cp -r build/Release-iphoneos/*.app Payload/
+          # Tìm file .app bất kể nó nằm ở đâu
+          APP_FILE=$(find build -name "*.app" | head -n 1)
+          cp -r "$APP_FILE" Payload/
           zip -r Avatar_iOS_V1.ipa Payload
 
       - name: Tra hang cho Chu tich
