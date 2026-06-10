@@ -6,7 +6,6 @@ jobs:
   build:
     name: Dong goi file IPA
     runs-on: macos-latest
-    # Thêm dòng này để fix lỗi cảnh báo Node.js
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
@@ -16,15 +15,15 @@ jobs:
         with:
           lfs: true
 
-      - name: Fix loi quyen thuc thi
-        run: |
-          [ -f MapFileParser.sh ] && chmod +x MapFileParser.sh || true
-          [ -f process_symbols.sh ] && chmod +x process_symbols.sh || true
+      - name: Soi duong (Debug file structure)
+        run: ls -R  # Dòng này để liệt kê file, nếu lỗi ta sẽ nhìn vào đây
 
       - name: Hack bypass loi thieu Plugin
         run: |
-          if [ -f Classes/main.mm ]; then
-            cat << 'EOF' >> Classes/main.mm
+          # Tìm file main.mm ở bất cứ đâu
+          MAIN_MM=$(find . -name "main.mm" | head -n 1)
+          if [ -n "$MAIN_MM" ]; then
+            cat << 'EOF' >> "$MAIN_MM"
           extern "C" {
               int iOSPlugins__SMSsend() { return 0; }
               int iOSPlugins__Send() { return 0; }
@@ -40,14 +39,23 @@ jobs:
 
       - name: Build Xcode Project
         run: |
-          # Kiểm tra xem có file .xcworkspace không, nếu không thì dùng .xcodeproj
-          if [ -d "Unity-iPhone.xcworkspace" ]; then
-            PROJECT_CMD="-workspace Unity-iPhone.xcworkspace"
-          else
-            PROJECT_CMD="-project Unity-iPhone.xcodeproj"
+          # Tự động tìm file .xcworkspace hoặc .xcodeproj
+          PROJECT_FILE=$(find . -maxdepth 3 \( -name "*.xcworkspace" -o -name "*.xcodeproj" \) | head -n 1)
+          
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "Loi: Khong tim thay file du an Xcode nao!"
+            exit 1
           fi
           
-          xcodebuild $PROJECT_CMD -scheme Unity-iPhone -configuration Release clean build \
+          echo "Dang build file: $PROJECT_FILE"
+          
+          if [[ "$PROJECT_FILE" == *".xcworkspace" ]]; then
+            CMD="-workspace $PROJECT_FILE"
+          else
+            CMD="-project $PROJECT_FILE"
+          fi
+          
+          xcodebuild $CMD -scheme Unity-iPhone -configuration Release clean build \
           CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
           -sdk iphoneos \
           OTHER_LDFLAGS="-Wl,-undefined,dynamic_lookup" \
